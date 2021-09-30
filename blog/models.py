@@ -35,6 +35,11 @@ class TagQuerySet(models.QuerySet):
         tags_filtered_by_posts = tags.order_by('-posts_count')
         return tags_filtered_by_posts
 
+    def prefetch_tags_with_posts_count(self):
+        tags_with_posts_count = self.annotate(posts_count=Count('posts'))
+        prefetched_tags_with_posts_count = models.Prefetch('tags', queryset=tags_with_posts_count)
+        return tags_with_posts_count, prefetched_tags_with_posts_count
+
 
 class Post(models.Model):
     title = models.CharField('Заголовок', max_length=200)

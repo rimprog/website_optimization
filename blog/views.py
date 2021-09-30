@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.db.models import Count, Prefetch
 
 from blog.models import Comment, Post, Tag
@@ -26,16 +26,15 @@ def serialize_tag(tag):
 
 
 def index(request):
-    tags_with_posts_count = Tag.objects.annotate(posts_count=Count('posts'))
-    prefetch_tags = Prefetch('tags', queryset=tags_with_posts_count)
+    prefetch_tags_with_posts_count = Tag.objects.prefetch_tags_with_posts_count()[1]
 
     most_popular_posts = Post.objects.popular()[:5] \
-                                     .prefetch_related(prefetch_tags, 'author') \
+                                     .prefetch_related(prefetch_tags_with_posts_count, 'author') \
                                      .fetch_with_comments_count()
 
     most_fresh_posts = Post.objects.order_by('-published_at')[:5] \
                                    .annotate(comments_amount=Count('comments')) \
-                                   .prefetch_related(prefetch_tags, 'author')
+                                   .prefetch_related(prefetch_tags_with_posts_count, 'author')
 
     most_popular_tags = Tag.objects.popular()[:5]
 
@@ -50,14 +49,13 @@ def index(request):
 
 
 def post_detail(request, slug):
-    tags_with_posts_count = Tag.objects.annotate(posts_count=Count('posts'))
-    prefetch_tags = Prefetch('tags', queryset=tags_with_posts_count)
+    prefetch_tags_with_posts_count = Tag.objects.prefetch_tags_with_posts_count()[1]
 
     popular_posts = Post.objects.popular() \
-                                .prefetch_related(prefetch_tags, 'author') \
+                                .prefetch_related(prefetch_tags_with_posts_count, 'author') \
                                 .fetch_with_comments_count()
 
-    post = popular_posts.get(slug=slug)
+    post = get_object_or_404(popular_posts, slug=slug)
 
     most_popular_posts = popular_posts[:5]
 
@@ -95,19 +93,18 @@ def post_detail(request, slug):
 
 
 def tag_filter(request, tag_title):
-    tags_with_posts_count = Tag.objects.annotate(posts_count=Count('posts'))
-    prefetch_tags = Prefetch('tags', queryset=tags_with_posts_count)
+    tags_with_posts_count, prefetch_tags_with_posts_count = Tag.objects.prefetch_tags_with_posts_count()
 
     most_popular_posts = Post.objects.popular()[:5] \
-                                     .prefetch_related(prefetch_tags, 'author') \
+                                     .prefetch_related(prefetch_tags_with_posts_count, 'author') \
                                      .fetch_with_comments_count()
 
-    tag = Tag.objects.get(title=tag_title)
+    tag = get_object_or_404(tags_with_posts_count, title=tag_title)
 
     most_popular_tags = Tag.objects.popular()[:5]
 
     related_posts = tag.posts.popular()[:20] \
-                             .prefetch_related(prefetch_tags, 'author') \
+                             .prefetch_related(prefetch_tags_with_posts_count, 'author') \
                              .fetch_with_comments_count()
 
     context = {
